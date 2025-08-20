@@ -8,7 +8,7 @@
 </head>
 
 <body>
-    <div class="container">
+    <div class="container mt-6">
         @yield('content')
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>

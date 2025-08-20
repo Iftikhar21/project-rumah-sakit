@@ -10,11 +10,15 @@ class DokterController extends Controller
     /**
      * Display a listing of the resource.
      */
+    public function landingpage(Dokter $dktr)
+    {
+        return view('dktr.landing');
+    }
     public function index()
     {
-        
-        $dktr = Dokter::latest()->paginate(5);
-        return view('dktr.index', compact('dktr'))->with('i', (request()->input('page', 1) -1) * 5);
+
+        $dktr = Dokter::oldest()->paginate(5);
+        return view('dktr.dokter', compact('dktr'))->with('i', (request()->input('page', 1) -1) * 5);
     }
 
     /**
@@ -72,7 +76,7 @@ class DokterController extends Controller
             'jamPraktik' => 'required',
         ]);
         $dktr->update($request->all());
-        return redirect()->route('dktr.index')->with('success', 'Data Berhasil Di Update !');
+        return redirect()->route('dktr.dokter')->with('success', 'Data Berhasil Di Update !');
     }
 
     /**
@@ -81,6 +85,6 @@ class DokterController extends Controller
     public function destroy(Dokter $dktr)
     {
         $dktr->delete();
-        return redirect()->route('dktr.index')->with('success', 'Data Berhasil Di Hapus !');
+        return redirect()->route('dktr.dokter')->with('success', 'Data Berhasil Di Hapus !');
     }
 }
