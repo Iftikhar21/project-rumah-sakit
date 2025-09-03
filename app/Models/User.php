@@ -17,12 +17,11 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
+
     protected $fillable = [
-        'name',
         'email',
+        'name',
         'password',
-        'telepon',
-        'alamat',
         'role',
     ];
 
@@ -47,5 +46,19 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    // app/Models/User.php
+    public function operator()
+    {
+        return $this->hasOne(Operator::class, 'user_id'); // pastikan kolom foreign key sesuai
+    }
+    public function pasien()
+    {
+        return $this->hasOne(Pasien::class, 'user_id'); // pastikan kolom foreign key sesuai
+    }
+    public function dokter()
+    {
+        return $this->hasOne(Dokter::class, 'user_id'); // pastikan kolom foreign key sesuai
     }
 }

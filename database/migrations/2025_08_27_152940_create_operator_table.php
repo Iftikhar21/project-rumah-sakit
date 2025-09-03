@@ -11,23 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('dokters', function (Blueprint $table) {
+        Schema::create('operator', function (Blueprint $table) {
             $table->id();
-            $table->char('idDokter');
-            $table->text('namaDokter');
-            $table->text('tanggalLahir');
-            $table->text('spesialisasi');
-            $table->text('lokasiPraktik');
-            $table->text('jamPraktik');
+            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->string('kode_operator')->unique();
+            $table->string('nama_operator');
             $table->timestamps();
         });
-    }   
-    
+    }
+
     /**
      * Reverse the migrations.
      */
     public function down(): void
     {
-        Schema::dropIfExists('dokters');
+        Schema::dropIfExists('operator');
     }
 };

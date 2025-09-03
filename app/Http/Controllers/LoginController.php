@@ -2,16 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Pasien;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Password;
-
-
-
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class LoginController extends Controller
 {
@@ -20,10 +19,11 @@ class LoginController extends Controller
         $user = Auth::user();
         return view('auth/profile', compact('user'));
     }
+
     public function login()
     {
         if (Auth::check()) {
-            return redirect('login');
+            return redirect()->route('login');
         }
         return view('auth/login');
     }
@@ -32,33 +32,23 @@ class LoginController extends Controller
     {
         $maxAttempts = 5;
         $decaySeconds = 34;
-
-        // Gunakan IP address sebagai throttle key utama
         $throttleKey = $request->ip();
 
-        // Cek rate limit berdasarkan IP
         if (RateLimiter::tooManyAttempts($throttleKey, $maxAttempts)) {
             $seconds = RateLimiter::availableIn($throttleKey);
             return redirect('/')->with('error', 'Terlalu banyak percobaan login. Coba lagi dalam ' . $seconds . ' detik.');
         }
 
-        // Validasi form terlebih dahulu
         $request->validate([
             'email' => 'required|email',
             'password' => 'required',
         ]);
 
-        $credentials = [
-            'email' => $request->email,
-            'password' => $request->password,
-        ];
+        $credentials = $request->only('email', 'password');
 
-        // Attempt login
         if (!Auth::attempt($credentials)) {
-            // Hit rate limiter pada failed attempt
             RateLimiter::hit($throttleKey, $decaySeconds);
 
-            // Tentukan pesan error yang tepat
             $error = User::where('email', $request->email)->exists()
                 ? 'Password salah'
                 : 'Email tidak terdaftar';
@@ -66,20 +56,28 @@ class LoginController extends Controller
             return back()->withInput($request->only('email'))->with('error', $error);
         }
 
-        // Login berhasil - clear rate limiter
         RateLimiter::clear($throttleKey);
 
-        // Tambahkan 10 poin setiap login
         $user = Auth::user();
-        $user->save();
-
-        // Set session flag untuk menampilkan notifikasi diskon baru
         session(['just_logged_in' => true]);
-
-        // Regenerate session untuk keamanan
         $request->session()->regenerate();
 
-        return redirect()->intended('landingpage')->with('success', 'Selamat datang, ' . $user->name . '!');
+        // 🔥 Redirect berdasarkan role
+        switch ($user->role) {
+            case 'user':
+                return redirect()->route('pasien-view')
+                    ->with('success', 'Selamat datang User !');
+            case 'operator':
+                return redirect()->route('operator-view')
+                    ->with('success', 'Selamat datang Operator !');
+            case 'dokter':
+                return redirect()->route('dokter-view')
+                    ->with('success', 'Selamat datang Dokter, ' . $user->name . '!');
+            default:
+                Auth::logout();
+                return redirect()->route('login')
+                    ->with('error', 'Role tidak dikenali, silakan hubungi admin.');
+        }
     }
 
     public function register()
@@ -89,25 +87,20 @@ class LoginController extends Controller
 
     public function create(Request $request)
     {
-        Session::flash('name', $request->name);
         Session::flash('email', $request->email);
-        Session::flash('alamat', $request->alamat);
-        Session::flash('telepon', $request->telepon);
 
         $request->validate(
             [
-                'name' => 'required|max:255',
                 'email' => 'required|email|unique:users|max:255',
-                'alamat' => 'required|max:500',
+                'username' => 'required',
                 'password' => 'required|min:8|confirmed',
                 'password_confirmation' => 'required'
             ],
             [
-                'name.required' => 'Nama lengkap harus diisi.',
                 'email.required' => 'Email harus diisi.',
                 'email.email' => 'Silahkan masukkan email yang valid (menggunakan @).',
                 'email.unique' => 'Email sudah terdaftar.',
-                'alamat.required' => 'Alamat harus diisi.',
+                'username.required' => 'Username harus diisi.',
                 'password.required' => 'Password harus diisi.',
                 'password.min' => 'Password minimal 8 karakter.',
                 'password.confirmed' => 'Konfirmasi password tidak cocok.',
@@ -116,10 +109,8 @@ class LoginController extends Controller
         );
 
         $data = [
-            'name' => $request->name,
             'email' => $request->email,
-            'telepon' => $request->telepon,
-            'alamat' => $request->alamat,
+            'name' => $request->username,
             'password' => Hash::make($request->password),
             'role' => 'user'
         ];
@@ -128,6 +119,7 @@ class LoginController extends Controller
 
         return redirect()->route('login')->with('success', 'Pendaftaran berhasil, silahkan login');
     }
+
 
     public function resetPass()
     {
@@ -174,7 +166,6 @@ class LoginController extends Controller
             : back()->withErrors(['email' => [__($status)]]);
     }
 
-
     public function actionlogout()
     {
         Auth::logout();
@@ -183,6 +174,7 @@ class LoginController extends Controller
 
         return redirect('login')->with('success', 'Anda telah berhasil logout.');
     }
+
     public function updatePhoto(Request $request)
     {
         $request->validate([
@@ -196,12 +188,10 @@ class LoginController extends Controller
         $user = Auth::user();
 
         if ($request->hasFile('photo')) {
-            // Hapus foto lama jika ada
             if ($user->photo && file_exists(storage_path('app/public/' . $user->photo))) {
                 unlink(storage_path('app/public/' . $user->photo));
             }
 
-            // Simpan foto baru
             $path = $request->file('photo')->store('photo_user', 'public');
             $user->photo = $path;
             $user->save();
